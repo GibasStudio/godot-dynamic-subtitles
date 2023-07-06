@@ -1,4 +1,4 @@
-tool
+@tool
 extends EditorPlugin
 
 const SINGLETON := "Subtitles"
@@ -19,8 +19,8 @@ func _enter_tree() -> void:
 	
 	# Add elements
 	add_autoload_singleton(SINGLETON, "res://addons/subtitles/scenes/Subtitles.gd")
-	add_tool_menu_item(GEN_SUBS_NAME, self, "_tool_gen_subdata_in_scene")
-	add_tool_menu_item(MAKE_EVENT_NAME, self, "_tool_make_event_in_scene")
+	add_tool_menu_item(GEN_SUBS_NAME, Callable(self, "_tool_gen_subdata_in_scene"))
+	add_tool_menu_item(MAKE_EVENT_NAME, Callable(self, "_tool_make_event_in_scene"))
 	add_custom_type("CustomViewportFix", "Node", load("res://addons/subtitles/scripts/CustomViewportFix.gd"), null)
 
 func _add_setting_if_not_present(setting_name : String, type : int, default_value) -> void:

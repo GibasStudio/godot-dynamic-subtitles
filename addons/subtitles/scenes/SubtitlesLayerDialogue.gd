@@ -30,17 +30,17 @@ var side_padding := 20
 var bottom_padding := 5
 
 var _dialogue_queue := []
-onready var _dialogue_stack := VBoxContainer.new()
+@onready var _dialogue_stack := VBoxContainer.new()
 
 func _ready() -> void:
 	use_auto_line_splitter = ProjectSettings.get_setting(SETTING_AUTO_LINE_SPLIT)
 	auto_split_regex = ProjectSettings.get_setting(SETTING_AUTO_LINE_SPLIT_REGEX)
 	add_child(_dialogue_stack)
-	_dialogue_stack.set_anchors_and_margins_preset(Control.PRESET_WIDE) # fill screen
-	_dialogue_stack.alignment = BoxContainer.ALIGN_END
-	_dialogue_stack.margin_left = side_padding
-	_dialogue_stack.margin_right = -side_padding
-	_dialogue_stack.margin_bottom = -bottom_padding
+	_dialogue_stack.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT) # fill screen
+	_dialogue_stack.alignment = BoxContainer.ALIGNMENT_END
+	_dialogue_stack.offset_left = side_padding
+	_dialogue_stack.offset_right = -side_padding
+	_dialogue_stack.offset_bottom = -bottom_padding
 	_dialogue_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dialogue_stack.theme = Subtitles.default_subtitle_theme
 
@@ -107,7 +107,7 @@ func _regex_split(input : String, regEx : RegEx) -> Array:
 	return segments
 
 func _refresh_stack() -> void:
-	if (not _dialogue_queue.empty()) and (_dialogue_stack.get_child_count() < max_stack_size):
+	if (not _dialogue_queue.is_empty()) and (_dialogue_stack.get_child_count() < max_stack_size):
 		# add subtitle to stack
 		var dialogue := _dialogue_queue.pop_front() as Dialogue
 		var sub := _create_sub(dialogue.sub_data, dialogue.override_text)
@@ -115,7 +115,7 @@ func _refresh_stack() -> void:
 			return
 		_dialogue_stack.add_child(sub)
 		_create_subtitle_timer(sub, dialogue.stream_node, dialogue.sub_data)
-		sub.connect("tree_exited", self, "_refresh_stack", [], CONNECT_DEFERRED) # one frame after it exits the tree, refresh the stack again
+		sub.connect("tree_exited", Callable(self, "_refresh_stack").bind(), CONNECT_DEFERRED) # one frame after it exits the tree, refresh the stack again
 		if dialogue.theme_override != null:
 			sub.theme = dialogue.theme_override
 		if (_dialogue_stack.get_child_count() < max_stack_size):
@@ -142,7 +142,7 @@ func _create_sub(sub_data : SubtitleData, override_text : String) -> PanelContai
 		# treat as general subtitle
 		var label := Label.new()
 		label.text = sub_data.subtitle_key
-		if not override_text.empty():
+		if not override_text.is_empty():
 			label.text = override_text
 		panel.add_child(label)
 	_create_panel_name(panel, sub_data)
@@ -152,7 +152,7 @@ func _create_subtitle_timer(panel : PanelContainer, audio : Node, sub_data : Sub
 	var timer := Timer.new()
 	panel.add_child(timer)
 	timer.wait_time = max(audio.stream.get_length() + sub_data.subtitles_padding, 0.001) # make sure the wait time doesn't go negative
-	timer.connect("timeout", panel, "queue_free")
+	timer.connect("timeout", Callable(panel, "queue_free"))
 	timer.start()
 
 var _subtitle_id :int= 0 # this is tucked here because it is only used here

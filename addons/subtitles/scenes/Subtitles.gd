@@ -8,7 +8,7 @@ var layer_3D : SubtitlesLayer3D
 var layer_2D : SubtitlesLayer2D
 var layer_dialogue : SubtitlesLayerDialogue
 
-var default_subtitle_theme := preload("res://addons/subtitles/default_theming/base_theme.tres")
+var default_subtitle_theme := load("res://addons/subtitles/default_theming/base_theme.tres")
 
 """
 Editable Subtitles Settings
@@ -74,10 +74,10 @@ func show() -> void:
 	layer_2D.set_visible(true)
 	layer_dialogue.set_visible(true)
 
-func set_viewport(viewport : Viewport) -> void:
+func set_viewport(viewport : SubViewport) -> void:
 	if not is_instance_valid(get_tree()):
 		# for some reason this always produces an error. But it's fine because that only happens when the game is closing anyway
 		return
 	emit_signal("on_viewport_changed", viewport)
-	if not viewport.is_connected("tree_exiting", self, "set_viewport"):
-		viewport.connect("tree_exiting", self, "set_viewport", [get_tree().root.get_viewport()])
+	if not viewport.is_connected("tree_exiting", Callable(self, "set_viewport")):
+		viewport.connect("tree_exiting", Callable(self, "set_viewport").bind(get_tree().root.get_viewport()))

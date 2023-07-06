@@ -1,7 +1,7 @@
 extends CanvasLayer
 class_name SubtitlesLayer3D
 
-const DEFAULT_THEME := preload("res://addons/subtitles/default_theming/base_theme.tres")
+var default_theme := load("res://addons/subtitles/default_theming/base_theme.tres")
 
 # padding range of 0.0 - 1.0. Ideally in the upper limits
 var fov_padding_percent := 0.95
@@ -14,15 +14,15 @@ var _viewport_size_cache := Vector2()
 var viewport : Viewport = null
 
 func _ready() -> void:
-	Subtitles.connect("on_viewport_changed", self, "_viewport_changed")
+	Subtitles.connect("on_viewport_changed", Callable(self, "_viewport_changed"))
 	_viewport_changed(get_tree().root.get_viewport())
 
 func _viewport_changed(n_viewport : Viewport) -> void:
 	if n_viewport == viewport:
 		return
 	viewport = n_viewport
-	if not viewport.is_connected("size_changed", self, "_cache_viewport_size"):
-		viewport.connect("size_changed", self, "_cache_viewport_size")
+	if not viewport.is_connected("size_changed", Callable(self, "_cache_viewport_size")):
+		viewport.connect("size_changed", Callable(self, "_cache_viewport_size"))
 	_cache_viewport_size()
 
 func _cache_viewport_size() -> void:
@@ -35,7 +35,7 @@ func _process(_delta : float) -> void:
 	_update_subtitles() 
 
 func _update_subtitles() -> void:
-	var cam := viewport.get_camera()
+	var cam := viewport.get_camera_3d()
 	#print("updating subtitles")
 	for c in get_children():
 		if not is_instance_valid(c) or not c is PanelContainer:
@@ -46,25 +46,25 @@ func _update_subtitles() -> void:
 		_update_subtitle_visibility(c as PanelContainer, cam)
 
 
-func _update_subtitle_position(panel : PanelContainer, cam : Camera) -> void:
+func _update_subtitle_position(panel : PanelContainer, cam : Camera3D) -> void:
 	if not is_instance_valid(cam) or not is_instance_valid(panel):
 		return
 	if _position_mapping.has(panel.name):
-		var position : Spatial = _position_mapping[panel.name]
+		var position : Node3D = _position_mapping[panel.name]
 		if not is_instance_valid(position):
 			return
 		var pos_calc := cam.unproject_position(position.global_transform.origin)
 		pos_calc = _apply_cam_angles(cam, position, pos_calc, panel)
-		panel.rect_position = _clamp_subtitle_pos(panel, pos_calc)
-		panel.rect_position *= Subtitles.custom_viewport_scale
+		panel.position = _clamp_subtitle_pos(panel, pos_calc)
+		panel.position *= Subtitles.custom_viewport_scale
 	else:
 		push_warning("Orphaned subtitle detected! " + str(panel))
 
-func _update_subtitle_visibility(panel : PanelContainer, cam : Camera) -> void:
+func _update_subtitle_visibility(panel : PanelContainer, cam : Camera3D) -> void:
 	if not is_instance_valid(cam) or not is_instance_valid(panel):
 		return
 	if _position_mapping.has(panel.name) and _sub_data_cache.has(panel.name):
-		var position : Spatial = _position_mapping[panel.name]
+		var position : Node3D = _position_mapping[panel.name]
 		if not is_instance_valid(position):
 			return
 		var data : SubtitleData = _sub_data_cache[panel.name]
@@ -74,7 +74,7 @@ func _update_subtitle_visibility(panel : PanelContainer, cam : Camera) -> void:
 		push_warning("Orphaned subtitle detected! " + str(panel))
 
 
-func _apply_cam_angles(cam : Camera, pos : Spatial, calc_pos : Vector2, _panel : PanelContainer) -> Vector2:
+func _apply_cam_angles(cam : Camera3D, pos : Node3D, calc_pos : Vector2, _panel : PanelContainer) -> Vector2:
 	# better calculations for where to place the subtitle on screen based on closeness of angle (along y-axis)
 	var cam_forward :Vector3= -cam.global_transform.basis.z
 	var delta :Vector3= pos.global_transform.origin - cam.global_transform.origin
@@ -100,7 +100,7 @@ func _apply_cam_angles(cam : Camera, pos : Spatial, calc_pos : Vector2, _panel :
 		# off left side
 		side_pos.x = -1 - _viewport_size_cache.x
 
-	var fov_ang := deg2rad(cam.fov * (fov_padding_percent))
+	var fov_ang := deg_to_rad(cam.fov * (fov_padding_percent))
 	if abs(angle) < fov_ang:
 		# on-screen
 		var abs_ang := abs(angle)
@@ -109,17 +109,17 @@ func _apply_cam_angles(cam : Camera, pos : Spatial, calc_pos : Vector2, _panel :
 		var diff_ang := clamp(abs_ang, min_ang, max_ang)
 		var ramp := _remap(diff_ang, min_ang, max_ang, 0.0, 1.0)
 		ramp = pow(ramp, 3)
-		return calc_pos.linear_interpolate(side_pos, ramp)
+		return calc_pos.lerp(side_pos, ramp)
 
-	return side_pos.linear_interpolate(behind_pos, clamp(-dot, 0, 1.0))
+	return side_pos.lerp(behind_pos, clamp(-dot, 0, 1.0))
 
 func _remap(value : float, input_a : float, input_b : float, output_a : float, output_b : float) -> float:
 	return (value - input_a) / (input_b - input_a) * (output_b - output_a) + output_a
 
 func _clamp_subtitle_pos(panel : PanelContainer, pos : Vector2) -> Vector2:
 	# not perfect, but works ok.
-	pos.x = clamp(pos.x, screen_padding_min.x, _viewport_size_cache.x - panel.rect_size.x - screen_padding_max.x)
-	pos.y = clamp(pos.y, screen_padding_min.y, _viewport_size_cache.y - panel.rect_size.y - screen_padding_max.y)
+	pos.x = clamp(pos.x, screen_padding_min.x, _viewport_size_cache.x - panel.size.x - screen_padding_max.x)
+	pos.y = clamp(pos.y, screen_padding_min.y, _viewport_size_cache.y - panel.size.y - screen_padding_max.y)
 	return pos
 
 func add_subtitle(stream_node : AudioStreamPlayer3D, sub_data : SubtitleData, theme_override : Theme = null) -> void:
@@ -133,7 +133,7 @@ func add_subtitle(stream_node : AudioStreamPlayer3D, sub_data : SubtitleData, th
 	# add to layer
 	add_child(panel, true)
 	# apply theme override
-	panel.theme = DEFAULT_THEME if not theme_override else theme_override
+	panel.theme = default_theme if not theme_override else theme_override
 	# apply kill timer
 	_create_subtitle_timer(panel, stream_node, sub_data)
 	# register mapping
@@ -142,18 +142,18 @@ func add_subtitle(stream_node : AudioStreamPlayer3D, sub_data : SubtitleData, th
 	# connect for erasing mapping
 	_connect_mapping_erase(panel)
 	# force position update
-	_update_subtitle_position(panel, viewport.get_camera())
+	_update_subtitle_position(panel, viewport.get_camera_3d())
 
-func _get_position(stream_node : AudioStreamPlayer3D, sub_data : SubtitleData) -> Spatial:
+func _get_position(stream_node : AudioStreamPlayer3D, sub_data : SubtitleData) -> Node3D:
 	var override_path := sub_data.subtitle_position_override
 	if not override_path.is_empty():
 		# check that the position override is set and is a spatial node
 		# since this could be any spatial node, it could even be tied to an animated element of a character, like the muzzle of a gun or the throat of a creature.
-		return sub_data.get_node(override_path) as Spatial
+		return sub_data.get_node(override_path) as Node3D
 	# revert to the actual audio stream player position, which can be set fairly easily in editor
-	return stream_node as Spatial
+	return stream_node as Node3D
 
-func _create_sub(sub_data : SubtitleData, _position : Spatial) -> PanelContainer:
+func _create_sub(sub_data : SubtitleData, _position : Node3D) -> PanelContainer:
 	var panel := PanelContainer.new()
 	var key := sub_data.subtitle_key
 	if key.find(":") != -1:
@@ -179,7 +179,7 @@ func _create_subtitle_timer(panel : PanelContainer, audio : AudioStreamPlayer3D,
 	var timer := Timer.new()
 	panel.add_child(timer)
 	timer.wait_time = max(audio.stream.get_length() + sub_data.subtitles_padding, 0.001) # make sure the wait time doesn't go negative
-	timer.connect("timeout", panel, "queue_free")
+	timer.connect("timeout", Callable(panel, "queue_free"))
 	timer.start()
 
 var _subtitle_id :int= 0 # this is tucked here because it is only used here
@@ -191,7 +191,7 @@ func _create_panel_name(panel : PanelContainer, sub_data : SubtitleData) -> void
 	_subtitle_id %= 999
 
 func _connect_mapping_erase(panel : PanelContainer) -> void:
-	panel.connect("tree_exiting", self, "_clear_mapping", [panel.name])
+	panel.connect("tree_exiting", Callable(self, "_clear_mapping").bind(panel.name))
 
 func _clear_mapping(key : String) -> void:
 	_position_mapping.erase(key)
