@@ -1,3 +1,8 @@
+> [!WARNING]
+> This addon will no longer be in development and no support will be provided.
+> 
+> I recommended to use something else that has better support.
+
 # godot-dynamic-subtitles
 
 ![icon](https://user-images.githubusercontent.com/8940604/162344129-e88f66ea-928b-4650-86da-f58e8ad2985f.png)
